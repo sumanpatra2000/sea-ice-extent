@@ -1,21 +1,42 @@
-setwd("C:/Users/Kanishka/sea-ice-extent")
+# setwd("C:/Users/Kanishka/sea-ice-extent")
+setwd("sea-ice-extent/")
 library(tidyverse)
 library(lubridate)
 library(extrafont)
 library(kani)
 library(directlabels)
-library(cairoDevice)
+
+size_change <- function(x) {
+  ifelse(x > 2013, 1.4, 0.3)
+}
 
 sea_ice <- read.csv("seaice.csv") %>% select(-Source.Data)
 
 twenty_years <- sea_ice %>%
-  filter(Year <= 1999)
+  filter(Year <= 1999 & Year > 1978)
 
 rest <- sea_ice %>%
   filter(Year > 1999)
 
 avg <- mean(twenty_years$Extent)
 med <- median(twenty_years$Extent)
+
+north_previous <- sea_ice %>%
+  filter(Year <= 1999 & hemisphere == "north" & Year > 1978)
+
+north_rest <- sea_ice %>%
+  filter(Year > 1999 & hemisphere == "north")
+
+south_previous <- sea_ice %>%
+  filter(Year <= 1999 & hemisphere == "south" & Year > 1978)
+
+south_rest <- sea_ice %>%
+  filter(Year > 1999 & hemisphere == "south")
+
+avg_north <- mean(north_previous$Extent)
+avg_south <- mean(south_previous$Extent)
+med_north <- median(north_previous$Extent)
+med_south <- median(south_previous$Extent)
 
 rest <- rest %>% 
   inner_join(data.frame(month.abb) %>%
@@ -39,10 +60,6 @@ year_extents <- year_extents %>%
          label_code = ifelse(Year %in% c(2014, 2015, 2016, 2017), as.character(Year),""),
          size_code = ifelse(Year %in% c(2014, 2015, 2016, 2017), 1,0.5))
 
-size_change <- function(x) {
-  ifelse(x > 2013, 1.4, 0.3)
-}
-
 p <- year_extents %>%
   ggplot(aes(month.abb, med_diff, color = group_code)) + 
   geom_line(aes(group = Year, size = size_change(Year))) + 
@@ -53,12 +70,106 @@ p <- year_extents %>%
   scale_size_identity() + 
   scale_y_continuous(breaks = seq(-4.5, 2.5, by = 0.5)) + 
   theme_kani() + 
-  theme(legend.position = "None") +
-  labs(title = "Sea-ice cap extent",
-       subtitle = "As median difference from 1978-1999 median",
-       x = "Month", y = "Average Difference (in million sq. km)")
+  theme(legend.position = "None", plot.caption = element_text(size = 12)) +
+  labs(title = "Sea-ice cap extent from 2000-2017",
+       subtitle = "As median difference from 1979-1999 median extent",
+       x = "Month", y = "Median Difference (in million sq. km)",
+       caption = "By Kanishka Misra\nSource: Kaggle and NSIDC")
 
 p
 
 ggsave("median difference.png", p, height = 8, width = 8)
 
+## Hemisphere-wise analysis
+hemi_year_extents <- rest %>%
+  group_by(Year, month.abb, hemisphere) %>%
+  summarise(avg_extent = mean(Extent),
+            med_extent = median(Extent))
+
+hemi_year_extents$month.abb <- factor(hemi_year_extents$month.abb, levels = month.abb)
+
+hemi_year_extents <- hemi_year_extents %>%
+  arrange(Year) %>%
+  mutate(avg_diff = ifelse(hemisphere == "north", avg_extent - avg_north, avg_extent - avg_south),
+         med_diff = ifelse(hemisphere == "north", med_extent - med_north, med_extent - med_south),
+         group_code = ifelse(Year %in% c(2014, 2015, 2016), "one",
+                             ifelse(Year == 2017, "two", "three")),
+         label_code = ifelse(Year %in% c(2014, 2015, 2016, 2017), as.character(Year),""),
+         size_code = ifelse(Year %in% c(2014, 2015, 2016, 2017), 1,0.5))
+
+
+north_p <- hemi_year_extents %>%
+  filter(hemisphere == "north") %>%
+  ggplot(aes(month.abb, med_diff, color = group_code)) + 
+  geom_line(aes(group = Year, size = size_change(Year))) + 
+  scale_color_manual(values = c("black", "grey", "#f17f42")) + 
+  geom_hline(yintercept = 0) + 
+  geom_dl(aes(label = label_code), method = list(dl.trans(x = x + 0.1, y = y + 0.25), "last.points", fontfamily = "Roboto Condensed", fontface = "bold")) + 
+  # geom_text(aes(label = label_code)) + 
+  scale_size_identity() + 
+  scale_y_continuous(breaks = seq(-9, 4, by = 1)) + 
+  theme_kani() + 
+  theme(legend.position = "None", plot.caption = element_text(size = 12)) +
+  labs(title = "Sea-ice cap extent in the north from 2000-2017",
+       subtitle = "As median difference from 1979-1999 median extent",
+       x = "Month", y = "Median Difference (in million sq. km)",
+       caption = "By Kanishka Misra\nSource: Kaggle and NSIDC")
+
+north_p
+
+
+south_p <- hemi_year_extents %>%
+  filter(hemisphere == "south") %>%
+  ggplot(aes(month.abb, med_diff, color = group_code)) + 
+  geom_line(aes(group = Year, size = size_change(Year))) + 
+  scale_color_manual(values = c("black", "grey", "#f17f42")) + 
+  geom_hline(yintercept = 0) + 
+  geom_dl(aes(label = label_code), method = list(dl.trans(x = x + 0.1, y = y + 0.25), "last.points", fontfamily = "Roboto Condensed", fontface = "bold")) + 
+  # geom_text(aes(label = label_code)) + 
+  scale_size_identity() + 
+  scale_y_continuous(breaks = seq(-11, 8, by = 1)) + 
+  theme_kani() + 
+  theme(legend.position = "None", plot.caption = element_text(size = 12)) +
+  labs(title = "Sea-ice cap extent in the south from 2000-2017",
+       subtitle = "As median difference from 1978-1999 median extent",
+       x = "Month", y = "Median Difference (in million sq. km)",
+       caption = "By Kanishka Misra\nSource: Kaggle and NSIDC")
+
+south_p
+
+
+#### Month analysis of all years.
+
+all_years <- sea_ice %>% 
+  # filter(hemisphere == "south") %>%
+  inner_join(data.frame(month.abb) %>%
+               mutate(Month = row_number())) %>%
+  group_by(Year, month.abb) %>%
+  summarise(avg = mean(Extent),
+            med = median(Extent))
+
+all_years$month.abb <- factor(all_years$month.abb, levels = month.abb)
+
+all_years <- all_years %>%
+  arrange(Year, month.abb)
+
+all_years<- all_years %>%
+  # filter(hemisphere == "north") %>%
+  # select(-hemisphere) %>%
+  mutate(rank_avg = rank(-avg),
+         rank_med = rank(-med))
+
+all_years$rank_avg <- factor(all_years$rank_avg, levels = seq(12,1))
+all_years$rank_med <- factor(all_years$rank_med, levels = seq(12,1))
+
+all_years %>%
+  filter(Year > 1978 & Year < 2017) %>%
+  ggplot(aes(Year, rank_avg, color = month.abb)) +
+  geom_line(aes(group = month.abb), size = 0.7) + 
+  geom_dl(aes(label = month.abb), method = list(dl.trans(x = x + 0.1, y = y + 0.25), "last.points", fontfamily = "Roboto Condensed", fontface = "bold")) +
+  theme_kani() + 
+  # scale_x_continuous(breaks = seq(2000, 2016, by = 2))
+  scale_x_continuous(breaks = seq(1979, 2016, by = 4), limits = c(1979, 2016))
+
+year_extents <- year_extents %>%
+  mutate(rank_avg = rank(avg_diff), rank_med = rank(med_diff))
