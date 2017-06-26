@@ -163,13 +163,18 @@ all_years$rank_avg <- factor(all_years$rank_avg, levels = seq(12,1))
 all_years$rank_med <- factor(all_years$rank_med, levels = seq(12,1))
 
 all_years %>%
-  filter(Year > 1978 & Year < 2017) %>%
+  filter(Year > 1999 & Year < 2017) %>%
   ggplot(aes(Year, rank_avg, color = month.abb)) +
   geom_line(aes(group = month.abb), size = 0.7) + 
   geom_dl(aes(label = month.abb), method = list(dl.trans(x = x + 0.1, y = y + 0.25), "last.points", fontfamily = "Roboto Condensed", fontface = "bold")) +
   theme_kani() + 
-  # scale_x_continuous(breaks = seq(2000, 2016, by = 2))
-  scale_x_continuous(breaks = seq(1979, 2016, by = 4), limits = c(1979, 2016))
+  scale_x_continuous(breaks = seq(2000, 2016, by = 2)) + 
+  # scale_x_continuous(breaks = seq(1979, 2016, by = 4), limits = c(1979, 2016))
+  theme(legend.position = "none") + 
+  labs(title = "Months with the most ice-covered seas",
+       subtitle = "from 2000 to 2016",
+       caption = "by Kanishka Misra\nSource: Kaggle and NSIDC")
+ 
 
 year_extents <- year_extents %>%
   mutate(rank_avg = rank(avg_diff), rank_med = rank(med_diff))
