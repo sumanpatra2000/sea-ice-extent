@@ -1,16 +1,23 @@
-# setwd("C:/Users/Kanishka/sea-ice-extent")
-setwd("sea-ice-extent/")
+setwd("C:/Users/Kanishka/sea-ice-extent")
+# setwd("sea-ice-extent/")
 library(tidyverse)
 library(lubridate)
 library(extrafont)
 library(kani)
 library(directlabels)
+library(gganimate)
 
 size_change <- function(x) {
   ifelse(x > 2013, 1.4, 0.3)
 }
 
 sea_ice <- read.csv("seaice.csv") %>% select(-Source.Data)
+
+sea_ice <- sea_ice %>% 
+  # filter(hemisphere == "south") %>%
+  inner_join(data.frame(month.abb) %>%
+               mutate(Month = row_number()))
+sea_ice$month.abb <- factor(sea_ice$month.abb, levels = month.abb)
 
 twenty_years <- sea_ice %>%
   filter(Year <= 1999 & Year > 1978)
@@ -61,7 +68,7 @@ year_extents <- year_extents %>%
          size_code = ifelse(Year %in% c(2014, 2015, 2016, 2017), 1,0.5))
 
 p <- year_extents %>%
-  ggplot(aes(month.abb, med_diff, color = group_code)) + 
+  ggplot(aes(month.abb, avg_diff, color = group_code)) + 
   geom_line(aes(group = Year, size = size_change(Year))) + 
   scale_color_manual(values = c("black", "grey", "#f17f42")) + 
   geom_hline(yintercept = 0) + 
@@ -71,14 +78,14 @@ p <- year_extents %>%
   scale_y_continuous(breaks = seq(-4.5, 2.5, by = 0.5)) + 
   theme_kani() + 
   theme(legend.position = "None", plot.caption = element_text(size = 12)) +
-  labs(title = "Sea-ice cap extent from 2000-2017",
-       subtitle = "As median difference from 1979-1999 median extent",
-       x = "Month", y = "Median Difference (in million sq. km)",
+  labs(title = "Extent of ice in seas from 2000-2017",
+       subtitle = "As average difference from 1979-1999 average extent",
+       x = "Month", y = "Average Difference (in million sq. km)",
        caption = "By Kanishka Misra\nSource: Kaggle and NSIDC")
 
 p
 
-ggsave("median difference.png", p, height = 8, width = 8)
+ggsave("average difference.png", p, height = 8, width = 8)
 
 ## Hemisphere-wise analysis
 hemi_year_extents <- rest %>%
@@ -100,43 +107,43 @@ hemi_year_extents <- hemi_year_extents %>%
 
 north_p <- hemi_year_extents %>%
   filter(hemisphere == "north") %>%
-  ggplot(aes(month.abb, med_diff, color = group_code)) + 
+  ggplot(aes(month.abb, avg_diff, color = group_code)) + 
   geom_line(aes(group = Year, size = size_change(Year))) + 
   scale_color_manual(values = c("black", "grey", "#f17f42")) + 
   geom_hline(yintercept = 0) + 
-  geom_dl(aes(label = label_code), method = list(dl.trans(x = x + 0.1, y = y + 0.25), "last.points", fontfamily = "Roboto Condensed", fontface = "bold")) + 
+  geom_dl(aes(label = label_code), method = list(dl.trans(x = x + 0.1, y = y + 0.15), "last.points", fontfamily = "Roboto Condensed", fontface = "bold")) + 
   # geom_text(aes(label = label_code)) + 
   scale_size_identity() + 
   scale_y_continuous(breaks = seq(-9, 4, by = 1)) + 
   theme_kani() + 
   theme(legend.position = "None", plot.caption = element_text(size = 12)) +
-  labs(title = "Sea-ice cap extent in the north from 2000-2017",
-       subtitle = "As median difference from 1979-1999 median extent",
-       x = "Month", y = "Median Difference (in million sq. km)",
+  labs(title = "Extent of ice in seas in the north from 2000-2017",
+       subtitle = "As average difference from 1979-1999 average extent",
+       x = "Month", y = "Average Difference (in million sq. km)",
        caption = "By Kanishka Misra\nSource: Kaggle and NSIDC")
 
-north_p
+ggsave("north_avg.png", north_p, height = 9 , width = 9)
 
 
 south_p <- hemi_year_extents %>%
   filter(hemisphere == "south") %>%
-  ggplot(aes(month.abb, med_diff, color = group_code)) + 
+  ggplot(aes(month.abb, avg_diff, color = group_code)) + 
   geom_line(aes(group = Year, size = size_change(Year))) + 
   scale_color_manual(values = c("black", "grey", "#f17f42")) + 
   geom_hline(yintercept = 0) + 
-  geom_dl(aes(label = label_code), method = list(dl.trans(x = x + 0.1, y = y + 0.25), "last.points", fontfamily = "Roboto Condensed", fontface = "bold")) + 
+  geom_dl(aes(label = label_code), method = list(dl.trans(x = x + 0.1, y = y + 0.15), "last.points", fontfamily = "Roboto Condensed", fontface = "bold")) + 
   # geom_text(aes(label = label_code)) + 
   scale_size_identity() + 
   scale_y_continuous(breaks = seq(-11, 8, by = 1)) + 
   theme_kani() + 
   theme(legend.position = "None", plot.caption = element_text(size = 12)) +
-  labs(title = "Sea-ice cap extent in the south from 2000-2017",
-       subtitle = "As median difference from 1978-1999 median extent",
-       x = "Month", y = "Median Difference (in million sq. km)",
+  labs(title = "Extent of ice in seas in the south from 2000-2017",
+       subtitle = "As average difference from 1978-1999 average extent",
+       x = "Month", y = "Average Difference (in million sq. km)",
        caption = "By Kanishka Misra\nSource: Kaggle and NSIDC")
 
 south_p
-
+ggsave("south_avg.png", south_p, height = 9, width = 9)
 
 #### Month analysis of all years.
 
@@ -162,19 +169,40 @@ all_years<- all_years %>%
 all_years$rank_avg <- factor(all_years$rank_avg, levels = seq(12,1))
 all_years$rank_med <- factor(all_years$rank_med, levels = seq(12,1))
 
-all_years %>%
+ranks <- all_years %>%
   filter(Year > 1999 & Year < 2017) %>%
   ggplot(aes(Year, rank_avg, color = month.abb)) +
-  geom_line(aes(group = month.abb), size = 0.7) + 
+  geom_line(aes(group = month.abb), size = 1) + 
   geom_dl(aes(label = month.abb), method = list(dl.trans(x = x + 0.1, y = y + 0.25), "last.points", fontfamily = "Roboto Condensed", fontface = "bold")) +
   theme_kani() + 
   scale_x_continuous(breaks = seq(2000, 2016, by = 2)) + 
   # scale_x_continuous(breaks = seq(1979, 2016, by = 4), limits = c(1979, 2016))
   theme(legend.position = "none") + 
   labs(title = "Months with the most ice-covered seas",
-       subtitle = "from 2000 to 2016",
+       subtitle = "ranked from 2000 to 2016",
        caption = "by Kanishka Misra\nSource: Kaggle and NSIDC")
- 
-
+ranks 
+ggsave( "ranks.png", ranks, height = 8, width = 8)
 year_extents <- year_extents %>%
   mutate(rank_avg = rank(avg_diff), rank_med = rank(med_diff))
+
+
+all_years %>%
+  ggplot(aes(avg)) + 
+  geom_density(aes(group = month.abb, fill = month.abb, color = month.abb), alpha = 0.6) + 
+  facet_wrap(~month.abb) + 
+  theme_kani()
+
+
+
+
+p_ani <- sea_ice %>%
+  filter(Year == 2016) %>%
+  mutate(d = ymd(paste(Year,"-",Month,"-",Day, sep = ""))) %>%
+  ggplot(aes(d, Extent, frame = d)) +
+  geom_path(aes(cumulative = TRUE, group = hemisphere, color = hemisphere))
+p_ani    
+gganimate(p_ani)  
+  
+sea_ice %>%
+  filter(Year == 2016)
