@@ -1,11 +1,13 @@
 setwd("C:/Users/Kanishka/sea-ice-extent")
-# setwd("sea-ice-extent/")
+setwd("sea-ice-extent/")
 library(tidyverse)
 library(lubridate)
 library(extrafont)
 library(kani)
 library(directlabels)
 library(gganimate)
+library(scales)
+library(tweenr)
 
 size_change <- function(x) {
   ifelse(x > 2013, 1.4, 0.3)
@@ -89,7 +91,7 @@ ggsave("average difference.png", p, height = 8, width = 8)
 
 ## Hemisphere-wise analysis
 hemi_year_extents <- rest %>%
-  group_by(Year, month.abb, hemisphere) %>%
+  group_by(Year, month.abb, Month,  hemisphere) %>%
   summarise(avg_extent = mean(Extent),
             med_extent = median(Extent))
 
@@ -121,7 +123,7 @@ north_p <- hemi_year_extents %>%
        subtitle = "As average difference from 1979-1999 average extent",
        x = "Month", y = "Average Difference (in million sq. km)",
        caption = "By Kanishka Misra\nSource: Kaggle and NSIDC")
-
+north_p
 ggsave("north_avg.png", north_p, height = 9 , width = 9)
 
 
@@ -170,13 +172,14 @@ all_years$rank_avg <- factor(all_years$rank_avg, levels = seq(12,1))
 all_years$rank_med <- factor(all_years$rank_med, levels = seq(12,1))
 
 ranks <- all_years %>%
-  filter(Year > 1999 & Year < 2017) %>%
+  # filter(Year > 1999 & Year < 2017) %>%
+  filter(Year > 1978 & Year < 2017) %>%
   ggplot(aes(Year, rank_avg, color = month.abb)) +
   geom_line(aes(group = month.abb), size = 1) + 
   geom_dl(aes(label = month.abb), method = list(dl.trans(x = x + 0.1, y = y + 0.25), "last.points", fontfamily = "Roboto Condensed", fontface = "bold")) +
   theme_kani() + 
-  scale_x_continuous(breaks = seq(2000, 2016, by = 2)) + 
-  # scale_x_continuous(breaks = seq(1979, 2016, by = 4), limits = c(1979, 2016))
+  # scale_x_continuous(breaks = seq(2000, 2016, by = 2)) + 
+  scale_x_continuous(breaks = seq(1979, 2016, by = 4), limits = c(1979, 2016)) + 
   theme(legend.position = "none") + 
   labs(title = "Months with the most ice-covered seas",
        subtitle = "ranked from 2000 to 2016",
@@ -194,15 +197,66 @@ all_years %>%
   theme_kani()
 
 
-
+orange <- "#f17f42"
 
 p_ani <- sea_ice %>%
-  filter(Year == 2016) %>%
   mutate(d = ymd(paste(Year,"-",Month,"-",Day, sep = ""))) %>%
-  ggplot(aes(d, Extent, frame = d)) +
-  geom_path(aes(cumulative = TRUE, group = hemisphere, color = hemisphere))
-p_ani    
-gganimate(p_ani)  
+  filter(Year == 2016) %>%
   
+  ggplot(aes(d, Extent, frame = Month, group = hemisphere)) +
+  geom_path(aes(cumulative = T, color = hemisphere), size = 1) + 
+  # facet_wrap(~Year, scales = "free_x") + 
+  theme_kani() + 
+  # scale_color_manual(values = c("#30a9de" , "#e53a40")) + 
+  labs(title = "Ice extent in Sea in 2016", x = "Month", y = "Extent (in million sq. km)")
+p_ani  
+# gganimate(p_ani, interval = 0.1, filename = "animate1.gif")  
+gganimate(p_ani, interval = 0.3, title_frame = F, filename = "animate3.gif")  
+
+north_p <- hemi_year_extents %>%
+  filter(hemisphere == "north") %>%
+  ggplot(aes(month.abb, avg_diff, color = group_code, frame = Month)) + 
+  geom_line(aes(cumulative = T, group = Year, size = size_change(Year))) + 
+  scale_color_manual(values = c("black", "grey", "#f17f42")) + 
+  geom_hline(yintercept = 0) + 
+  geom_dl(aes(label = label_code), method = list(dl.trans(x = x + 0.1, y = y + 0.15), "last.points", fontfamily = "Roboto Condensed", fontface = "bold")) + 
+  # geom_text(aes(label = label_code)) + 
+  scale_size_identity() + 
+  scale_y_continuous(breaks = seq(-9, 4, by = 1)) + 
+  theme_kani() + 
+  theme(legend.position = "None", plot.caption = element_text(size = 12)) +
+  labs(title = "Extent of ice in seas in the north from 2000-2017",
+       subtitle = "As average difference from 1979-1999 average extent",
+       x = "Month", y = "Average Difference (in million sq. km)",
+       caption = "By Kanishka Misra\nSource: Kaggle and NSIDC")
+north_p  
+gganimate(north_p, interval = 0.6, filename = "animate2.gif")
+
+ranks_tween <- all_years %>% 
+  filter(Year > 1978 & Year < 2017) %>%
+  ungroup() %>%
+  mutate(rank_avg = as.numeric(rank_avg), Year = as.numeric(Year)) %>%
+  select(Year, month.abb, rank_avg) %>%
+  split(.$Year) %>%
+  tweenr::tween_states(tweenlength = 5, statelength = 0, ease = "cubic-in-out", nframes = 300)
+
+ranks_tween$rank_avg <- factor(ranks_tween$rank_avg, levels = seq(12,1))
+?tween_states
+ranks_ani <- ranks_tween %>%
+  ggplot(aes(Year, rank_avg, color = month.abb, frame = .frame)) +
+  geom_path(aes(cumulative = T, group = month.abb), size = 1) + 
+  geom_dl(aes(label = month.abb), method = list(dl.trans(x = x + 0.1, y = y + 0.25), "last.points", fontfamily = "Roboto Condensed", fontface = "bold")) +
+  theme_kani() + 
+  # scale_x_continuous(breaks = seq(2000, 2016, by = 2)) + 
+  scale_x_continuous(breaks = seq(1979, 2016, by = 4), limits = c(1979, 2016)) + 
+  scale_y_continuous(breaks = seq(1,12, by = 1), labels = as.character(seq(12,1)))+
+  theme(legend.position = "none") + 
+  labs(title = "Months with the most ice-covered seas",
+       subtitle = "ranked from 1979 to 2016",
+       caption = "by Kanishka Misra\nSource: Kaggle and NSIDC")
+ranks_ani
+# gganimate(ranks_ani, interval = 0.2, title_frame = F, "animationwoah.gif")
+gganimate(ranks_ani, interval = 0.1, title_frame = F, ani.width = 600, filename = "animationyesss.gif")
+
 sea_ice %>%
   filter(Year == 2016)
